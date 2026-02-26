@@ -1,104 +1,60 @@
 # Infrastructure Layer
 
-Folder `infrastructure/` berisi implementasi teknis konkret dari abstraction yang didefinisikan di layer `application`.
+Folder `infrastructure/` berisi detail implementasi teknis dari sistem. Layer ini bertanggung jawab penuh untuk berkomunikasi dengan "dunia luar" (Database, File System, Cloud Storage, dan External Engine).
 
-Layer ini menangani interaksi dengan sistem eksternal seperti database, file system, cache, dan service lain.
+Semua *class* di layer ini **wajib mengimplementasikan *protocols* (interface)** yang sudah didefinisikan di layer `Application`.
 
 ```text
 infrastructure/
-├── adapters/
-│   ├── cache/
-│   ├── gateways/
-│   ├── generators/
-│   └── persistance/
-├── README.md
+└── adapters/
+    ├── cache/
+    ├── persistance/
+    │   ├── bucket/
+    │   ├── database/
+    │   ├── local/
+    │   └── repository/
+    ├── report_generator/
+    └── security/
+
 ```
 
 ---
 
 ## `adapters/`
 
-Berisi implementasi konkret dari `ports` yang ada di layer `application`.
+Berisi implementasi konkret (*adapter*) dari setiap *port* aplikasi.
 
-Adapter adalah jembatan antara abstraction (port) dan implementasi teknis.
+### 1. `cache/`
 
----
+Menangani mekanisme *caching* data untuk optimasi performa.
 
-### `cache/`
+* **Isi:** `memory_cache.py` (In-memory cache untuk menyimpan master data secara sementara).
 
-Berisi implementasi sistem caching.
+### 2. `persistance/`
 
-Digunakan untuk:
+Menangani segala bentuk persistensi dan penyimpanan data (Cloud, DB, Lokal).
 
-* Menyimpan hasil sementara
-* Mengurangi beban database
-* Optimisasi performa
+* **`bucket/`:** Integrasi ke *cloud object storage* (`cloudflare_r2.py`).
+* **`database/`:** *Wrapper* koneksi dan eksekusi level bawah ke *database* (`postgres.py`, `mysql.py`, `mongodb.py`).
+* **`local/`:** Manajemen *file system* server lokal, biasanya untuk file *temporary* (`local_fm_adapter.py`).
+* **`repository/`:** Implementasi *repository pattern* yang menggunakan *database adapter* untuk mengembalikan data spesifik (`tenant_repository_postgres.py`).
 
-Contoh:
+### 3. `report_generator/`
 
-* Redis adapter
-* In-memory cache adapter
+Integrasi dengan *engine* pembuat *report* pihak ketiga.
 
----
+* **Isi:** `open_report.py` (Implementasi komunikasi dengan *Rust OpenReport engine* atau library XLSX).
 
-### `gateways/`
+### 4. `security/`
 
-Berisi adapter untuk komunikasi dengan sistem eksternal.
+Menangani implementasi teknis terkait autentikasi dan otorisasi.
 
-Digunakan untuk:
-
-* HTTP client
-* External API integration
-* Service-to-service communication
-
-Folder ini menangani komunikasi keluar sistem.
+* **Isi:** `auth/token_decoder.py` (Logika *decoding* dan verifikasi token/JWT dari *request*).
 
 ---
 
-### `generators/`
+## Aturan Layer Infrastructure (The Infrastructure Rule)
 
-Berisi implementasi pembuat file atau output eksternal.
-
-Digunakan untuk:
-
-* XLSX generator
-* PDF generator
-* File writer
-
-Contoh:
-
-* Implementasi `ReportGeneratorPort`
-* OpenReport adapter
-
----
-
-### `persistance/`
-
-Berisi implementasi akses data.
-
-Digunakan untuk:
-
-* Repository implementation
-* Query execution
-* Database connection handling
-
-Folder ini berinteraksi langsung dengan database.
-
----
-
-## Tanggung Jawab Layer Infrastructure
-
-* Mengimplementasikan interface dari `application`
-* Berinteraksi dengan dunia luar (DB, file, API, cache)
-* Menggunakan library pihak ketiga
-* Tidak mengandung aturan bisnis inti
-
----
-
-## Dependency Rule
-
-Infrastructure:
-
-* Boleh bergantung pada `application`
-* Tidak boleh dipanggil langsung oleh `domain`
-* Tidak mengandung logika bisnis utama
+* **Hanya Eksekusi Teknis:** Dilarang keras menaruh logika bisnis (*if-else* alur bisnis) di sini. Layer ini hanya peduli *bagaimana* cara melakukan *query* SQL, *bagaimana* cara memanggil R2, atau *bagaimana* cara *write* file.
+* **Dependency Inversion:** Infrastructure bergantung pada Application (mengimplementasikan `protocols`), bukan sebaliknya.
+* **Plug & Play:** Setiap *adapter* harus didesain agar mudah diganti (misal: ganti PostgreSQL ke MySQL, atau R2 ke AWS S3) tanpa perlu menyentuh satu baris pun kode di layer `Application`.

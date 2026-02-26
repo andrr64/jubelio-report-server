@@ -1,102 +1,33 @@
 # Domain Layer
 
-Folder `domain/` berisi inti model bisnis sistem.
-Layer ini bersifat independen dan tidak memiliki ketergantungan pada framework, database, atau teknologi eksternal.
+Folder `domain/` adalah pusat atau "jantung" dari Clean Architecture. Namun, untuk *Reporting Server* ini, layer ini **sengaja dibiarkan kosong** (untuk saat ini).
 
-```text
-domain/
-├── entities/
-│   ├── db_config.py
-│   ├── report_config.py
-│   ├── report_context.py
-│   └── README.md
-```
+## Kenapa Kosong?
+
+Aplikasi *reporting* pada umumnya bersifat **Data-Driven Orchestration**. Tugas utama dari sistem ini adalah membaca data mentah (dari PostgreSQL), melakukan *binding* parameter (dari *request*), dan menuliskannya ke format `.xlsx` secara *streaming*. 
+
+Sistem ini tidak secara aktif memutasi state bisnis utama (seperti memotong stok, memvalidasi transaksi, atau mengubah status pesanan). Seluruh logika bisnis yang kompleks sebagian besar sudah diselesaikan di tingkat *Query SQL* atau di dalam sistem *core backend*.
 
 ---
 
-## Tujuan Domain Layer
+## Apa yang seharusnya diletakkan di sini? (Jika berevolusi)
 
-* Menyimpan struktur data inti sistem
-* Merepresentasikan konsep bisnis utama
-* Menjadi pusat aturan dan model yang stabil
-* Tidak bergantung pada layer lain
+Jika di masa depan aplikasi ini membutuhkan logika bisnis murni tingkat tinggi (*enterprise business rules*), komponen-komponen berikut akan dimasukkan ke dalam folder ini:
 
-Domain tidak mengetahui:
+### 1. `entities/`
+Objek bisnis utama yang memiliki identitas (ID) unik dan memiliki siklus hidup.
+*Contoh: Objek `Tenant` murni, `ReportTemplate`.*
 
-* FastAPI
-* Database
-* XLSX writer
-* Infrastructure implementation
+### 2. `value_objects/`
+Objek yang didefinisikan berdasarkan atributnya saja (tidak punya identitas unik). Jika nilainya sama, objek tersebut dianggap sama.
+*Contoh: `ReportDateRange` (untuk memvalidasi rentang tanggal laporan tidak boleh lebih dari 1 tahun), `QueryString`.*
 
 ---
 
-# Entities
+## Aturan Emas Layer Domain (The Golden Rule)
 
-Folder `entities/` berisi representasi objek inti yang digunakan dalam sistem.
+Walaupun saat ini kosong, jika ada *engineer* yang menambahkan kode ke folder ini di masa depan, **wajib mematuhi aturan berikut**:
 
-Entity menggambarkan konsep utama yang dipakai dalam proses bisnis report.
-
----
-
-## `db_config.py`
-
-Berisi definisi konfigurasi database dalam bentuk entity.
-
-Digunakan untuk:
-
-* Menyimpan struktur DSN / connection parameter
-* Representasi konfigurasi koneksi
-* Digunakan oleh application sebelum diteruskan ke infrastructure
-
-Entity ini hanya menyimpan data, bukan membuka koneksi.
-
----
-
-## `report_config.py`
-
-Berisi konfigurasi report.
-
-Digunakan untuk:
-
-* Menyimpan parameter report
-* Menentukan query, output format, dan pengaturan lain
-* Menjadi blueprint report sebelum dieksekusi
-
-Entity ini tidak menjalankan report, hanya mendefinisikan strukturnya.
-
----
-
-## `report_context.py`
-
-Berisi context eksekusi report.
-
-Digunakan untuk:
-
-* Membawa informasi runtime report
-* Menyimpan parameter yang sedang berjalan
-* Menghubungkan config dengan proses eksekusi
-
-Context membantu memisahkan definisi report dengan proses eksekusinya.
-
----
-
-## Karakteristik Entity
-
-* Tidak mengakses database
-* Tidak membaca/menulis file
-* Tidak tahu HTTP
-* Tidak tahu framework
-
-Entity hanya merepresentasikan data dan aturan yang melekat pada data tersebut.
-
----
-
-## Dependency Rule
-
-Domain:
-
-* Tidak boleh mengimpor infrastructure
-* Tidak boleh mengimpor interface
-* Tidak boleh mengimpor implementation detail
-
-Domain hanya boleh digunakan oleh layer di atasnya.
+1. **Zero Framework Dependencies:** Tidak boleh ada *import* dari library eksternal atau *framework* (seperti FastAPI, Pydantic, Psycopg2, aioboto3).
+2. **Pure Python:** Hanya boleh menggunakan fitur bawaan Python (`dataclasses`, `enum`, `datetime`, `typing`).
+3. **Total Isolation:** Layer ini sama sekali tidak boleh tahu dari mana data berasal (Database/R2) dan ke mana data dikirim (Excel/HTTP).

@@ -1,141 +1,55 @@
-# Struktur Folder `app/`
+# Interface Layer
 
-Folder `app/` adalah root utama aplikasi backend. Di dalamnya dibagi berdasarkan prinsip Clean Architecture agar
-tanggung jawab tiap bagian jelas dan terpisah.
+Folder `interface/` adalah lapisan terluar (*Delivery Mechanism*) dari aplikasi. Layer ini bertugas sebagai pintu masuk (*entry point*) yang menjembatani dunia luar (seperti *client browser* atau API konsumen) dengan sistem internal kita.
 
-```
-app/
-├── application/
-├── core/
-├── domain/
-├── infrastructure/
-├── interface/
-```
+Layer ini **sama sekali tidak boleh berisi logika bisnis**. Tugasnya hanya menerjemahkan HTTP *request* menjadi perintah untuk *Application Layer*, dan mengubah hasil dari *Application Layer* kembali menjadi HTTP *response*.
 
----
-
-## `application/`
-
-Berisi logika tingkat aplikasi (use case).
-
-Isi folder ini biasanya:
-
-* Use case / service orchestration
-* Port (interface / abstract class)
-* DTO internal
-* Flow eksekusi bisnis
-
-Folder ini:
-
-* Mengatur alur proses
-* Menggunakan entity dari `domain`
-* Tidak tahu detail implementasi teknis (DB, file system, framework)
-
-Contoh:
-
-* `report_generator_port.py`
-* `generate_report_usecase.py`
-
----
-
-## `domain/`
-
-Berisi inti model bisnis.
-
-Isi folder ini biasanya:
-
-* Entity
-* Value Object
-* Enum
-* Aturan bisnis murni
-
-Folder ini:
-
-* Tidak boleh bergantung pada framework
-* Tidak tahu soal database
-* Tidak tahu soal HTTP
-
-Ini adalah layer paling stabil dan paling independen.
-
----
-
-## `infrastructure/`
-
-Berisi implementasi teknis dari abstraction di `application`.
-
-Isi folder ini biasanya:
-
-* Adapter database (PostgreSQL)
-* Implementasi file writer (XLSX)
-* Integrasi library eksternal
-* External service client
-
-Folder ini:
-
-* Berinteraksi langsung dengan dunia luar
-* Menggunakan library pihak ketiga
-* Mengimplementasikan port dari `application`
-
-Contoh:
-
-* `open_report_adapter.py`
-* `postgres_repository.py`
-
----
-
-## `interface/`
-
-Berisi layer komunikasi dengan client (API).
-
-Isi folder ini biasanya:
-
-* FastAPI router
-* Controller
-* Request schema
-* Response schema
-
-Folder ini:
-
-* Menerima HTTP request
-* Validasi input
-* Memanggil use case dari `application`
-* Mengembalikan response
-
-Contoh:
-
-* `report_controller.py`
-* `report_router.py`
-
----
-
-## `core/`
-
-Berisi utilitas umum yang digunakan lintas layer.
-
-Isi folder ini biasanya:
-
-* Helper function
-* Sanitizer
-* Logger setup
-* Konfigurasi global
-* Shared constant
-
-Folder ini:
-
-* Tidak mengandung logika bisnis utama
-* Tidak mengandung orchestration use case
-
----
-
-## Dependency Direction
-
-Arah dependency selalu mengarah ke dalam:
+```text
+interface/
+└── http/
+    └── api/
+        ├── errors/
+        │   └── error.py
+        └── v1/
+            ├── router.py
+            └── reports/
+                └── generate/
+                    └── routes.py
 
 ```
-interface → application → domain
-infrastructure → application → domain
-```
 
-* `domain` tidak bergantung pada siapa pun
-* `application` bergantung pada `domain`
-* `interface` dan `infrastructure` bergantung pada `application`
+---
+
+## `http/api/errors/`
+
+Berisi *handler* untuk menangani *error* dan pengecualian (exceptions) yang terjadi di dalam aplikasi, lalu menerjemahkannya ke dalam format HTTP *response* yang sesuai.
+
+* **Isi:** `error.py` (Berisi fungsi seperti `custom_html_error_handler` untuk mengubah *exception* tingkat *Application* seperti `HTMLError` menjadi halaman HTML atau JSON *response* dengan status *code* yang tepat).
+
+---
+
+## `http/api/v1/`
+
+Folder utama untuk API versi 1. Semua *routing* dan *endpoints* FastAPI untuk V1 diletakkan di dalam struktur ini.
+
+### 1. `router.py`
+
+Bertindak sebagai *aggregator* atau pengumpul semua *sub-router* yang ada di dalam V1. File ini yang nantinya akan di-*include* langsung ke objek utama aplikasi FastAPI di `main.py`.
+
+### 2. `reports/generate/routes.py`
+
+Berisi definisi *endpoint* API (contoh: `@router.get("/generate")`).
+Tugas utama *controller/route* di sini adalah:
+
+1. Menerima *request* HTTP (parameter URL, *headers*, atau *body*).
+2. Membaca *Dependency Injection* atau *Global State* (seperti `request.app.state.ext`).
+3. Memanggil *Use Case* dari layer `Application` dengan parameter yang sudah divalidasi.
+4. Mengembalikan hasil (contoh: `FileResponse` untuk mengunduh file `.xlsx`).
+
+---
+
+## Aturan Layer Interface (The Delivery Rule)
+
+* **No Business Logic:** Dilarang melakukan *query database* atau validasi aturan bisnis di dalam *route*. Pindahkan ke *Use Case*.
+* **Validation Only:** Layer ini hanya boleh melakukan validasi format *input* (apakah tipe datanya benar, apakah token string ada, dsb).
+* **Framework Dependant:** Layer ini adalah satu-satunya tempat di mana *framework web* (FastAPI, Starlette) boleh diekspos secara mendalam.

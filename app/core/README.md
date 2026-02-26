@@ -1,72 +1,64 @@
 # Core Layer
 
-Folder `core/` berisi komponen pendukung umum yang digunakan lintas layer dalam aplikasi.
+Folder `core/` berisi hal-hal yang bersifat *cross-cutting concerns* (konfigurasi sistem, utilitas global, dan inisialisasi aplikasi). 
 
-Layer ini tidak berisi logika bisnis utama dan tidak merepresentasikan use case.
-Tujuannya adalah menyediakan utilitas dan konfigurasi yang reusable.
+Layer ini **tidak berisi logika bisnis**, melainkan fondasi teknis dasar yang digunakan oleh seluruh layer lain (terutama *Interface* dan *Infrastructure*).
 
 ```text
 core/
 ├── config.py
+├── logger.py
+└── state.py
+
 ```
-
----
-
-## Tujuan Core Layer
-
-* Menyimpan konfigurasi global aplikasi
-* Menyediakan utilitas bersama
-* Menghindari duplikasi kode
-* Menjadi tempat komponen yang tidak termasuk domain, application, atau infrastructure
-
-Core bersifat teknikal-support, bukan business-driven.
 
 ---
 
 ## `config.py`
 
-Berisi konfigurasi aplikasi.
+Berisi pengaturan global sistem dan *environment variables*.
 
 Digunakan untuk:
 
-* Membaca environment variable
-* Menyimpan default configuration
-* Menyusun konfigurasi sistem (database, cache, dsb)
+* Membaca file `.env` (biasanya menggunakan Pydantic `BaseSettings`).
+* Menyimpan kredensial *default* (Database System, AWS/R2, dll).
+* Menentukan *environment* aplikasi (Development, Staging, Production).
 
-File ini biasanya menjadi pusat pengaturan runtime aplikasi.
-
-Contoh tanggung jawab:
-
-* Memuat DSN database
-* Menentukan mode environment (dev / prod)
-* Menyediakan settings object
+Semua pengaturan yang sifatnya dinamis dan bergantung pada server *deployment* harus diatur di sini.
 
 ---
 
-## Karakteristik Core
+## `logger.py`
 
-* Tidak mengandung entity bisnis
-* Tidak mengandung use case
-* Tidak mengimplementasikan port
-* Tidak bergantung pada layer infrastructure secara spesifik
+Berisi konfigurasi *logging* global aplikasi.
 
-Core boleh digunakan oleh:
+Digunakan untuk:
 
-* application
-* infrastructure
-* interface
+* Membuat format log terpusat (contoh: log request API, durasi eksekusi, error handling).
+* Mengatur *log level* (INFO, DEBUG, ERROR, OK).
+* Memastikan semua pesan error dan status terekam dengan standar yang sama di *console* atau *file*.
 
-Namun tetap harus dijaga agar tidak menjadi “tempat buang semua hal”.
+Semua layer yang membutuhkan *print/logging* wajib mengimpor module `log` dari file ini.
 
 ---
 
-## Prinsip Penggunaan
+## `state.py`
 
-Jika suatu file:
+Berisi *container* untuk inisialisasi *Dependency Injection* dan *Global State*.
 
-* Tidak mengandung aturan bisnis
-* Tidak mengandung orchestration use case
-* Tidak mengakses sistem eksternal secara langsung
-* Bersifat reusable dan general
+Digunakan untuk:
 
-Maka file tersebut dapat ditempatkan di `core/`
+* Menyiapkan objek *singleton* saat aplikasi (FastAPI) baru menyala (*startup/lifespan*).
+* Mem- *wiring* (menyambungkan) implementasi dari *Infrastructure* ke *Use Cases* di layer *Application*.
+* Menyimpan instance koneksi *database global*, *cache*, dan *storage adapter* agar tidak di-*instantiate* berulang kali setiap ada *request*.
+
+File ini adalah jantung dari integrasi Clean Architecture di aplikasi ini tanpa menggunakan *framework dependency injection* eksternal.
+
+---
+
+## Tanggung Jawab Layer Core
+
+* Menangani *setup* dan *bootstrapping* aplikasi.
+* Menyediakan fungsionalitas umum yang tidak terikat pada satu *domain/use case* spesifik.
+* Menyimpan *secrets* dan pengaturan sistem.
+* **Sama sekali tidak bergantung pada layer Domain, Application, atau Interface.**
