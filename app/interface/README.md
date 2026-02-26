@@ -32,7 +32,7 @@ Berisi *handler* untuk menangani *error* dan pengecualian (exceptions) yang terj
 
 Folder utama untuk API versi 1. Semua *routing* dan *endpoints* FastAPI untuk V1 diletakkan di dalam struktur ini.
 
-### 1. `router.py`
+### 1. `router.py` 
 
 Bertindak sebagai *aggregator* atau pengumpul semua *sub-router* yang ada di dalam V1. File ini yang nantinya akan di-*include* langsung ke objek utama aplikasi FastAPI di `main.py`.
 
